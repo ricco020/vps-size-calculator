@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VPS sizing model: vCPU, RAM and disk from your stack and traffic</title>
+<meta name="description" content="Open-source VPS sizing model. Pick a stack (static, WordPress, WooCommerce, Laravel, Node.js, Docker), enter monthly visits, and see the vCPU, RAM and disk it needs, with every term of the formula shown.">
+<style>
+:root{--ink:#14110f;--paper:#f4efe6;--acc:#d9480f;--mute:#6b6259;--line:#d8cfc2}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.55 Georgia,"Iowan Old Style",serif}
+main{max-width:860px;margin:0 auto;padding:32px 20px 60px}
+h1{font:700 clamp(28px,5vw,44px)/1.1 "Courier New",monospace;letter-spacing:-.02em;margin:0 0 12px}
+.k{font:13px "Courier New",monospace;color:var(--acc);text-transform:uppercase;letter-spacing:.12em}
+form{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin:24px 0;padding:18px;border:2px solid var(--ink);background:#fffaf2}
+label{display:grid;gap:4px;font:14px "Courier New",monospace}
+input,select{font:16px "Courier New",monospace;padding:8px;border:1px solid var(--ink);background:#fff;width:100%}
+.ck{display:flex;gap:8px;align-items:center}.ck input{width:auto}
+.out{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:2px solid var(--ink)}
+.out div{padding:16px;border-right:1px solid var(--line)}.out div:last-child{border:0}
+.out b{display:block;font:700 34px "Courier New",monospace;color:var(--acc)}
+ul.br{list-style:none;padding:0;font:14px "Courier New",monospace}ul.br li{display:flex;justify-content:space-between;border-bottom:1px dashed var(--line);padding:4px 0}
+a{color:var(--acc)}footer{margin-top:40px;font-size:14px;color:var(--mute)}
+@media(max-width:520px){.out{grid-template-columns:1fr}.out div{border-right:0;border-bottom:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<main>
+<p class="k">open-source / vps sizing</p>
+<h1>How big a VPS does your site need?</h1>
+<p>This is the sizing model behind the <a href="https://html5advent.com/tools/vps-size-calculator">HTML5 Advent VPS size calculator</a>, published so you can read and change every assumption. It runs entirely in your browser. Source: <a href="https://github.com/ricco020/vps-size-calculator">github.com/ricco020/vps-size-calculator</a>.</p>
+<form id="f" onsubmit="return false">
+<label>Stack<select id="stack"><option value="static">Static site</option><option value="wordpress" selected>WordPress</option><option value="woocommerce">WooCommerce</option><option value="laravel">Laravel / PHP app</option><option value="node">Node.js app</option><option value="docker">Docker Compose app</option></select></label>
+<label>Number of sites or apps<input id="apps" type="number" min="1" max="50" value="1"></label>
+<label>Visits per month (all sites)<input id="visits" type="number" min="0" step="1000" value="30000"></label>
+<label>Uploads and media (GB)<input id="media" type="number" min="0" value="5"></label>
+<label>Traffic pattern<select id="peak"><option value="4">Steady (peak = 4x average)</option><option value="12">Spiky (peak = 12x average)</option></select></label>
+<div>
+<label class="ck"><input id="cache" type="checkbox" checked> Page or object cache</label>
+<label class="ck"><input id="staging" type="checkbox"> Staging copy</label>
+<label class="ck"><input id="mail" type="checkbox"> Mail server on the box</label>
+<label class="ck"><input id="jobs" type="checkbox"> Cron or queue workers</label>
+</div>
+</form>
+<div class="out"><div>vCPU<b id="o-cpu">-</b></div><div>RAM (GB)<b id="o-ram">-</b></div><div>Disk (GB)<b id="o-disk">-</b></div></div>
+<p id="o-rps"></p>
+<ul class="br" id="o-br"></ul>
+<p>Want this matched to an actual plan and a monthly price? The <a href="https://html5advent.com/tools/vps-size-calculator">full calculator</a> maps the result to a current plan, and the guide <a href="https://html5advent.com/guides/how-much-does-a-vps-cost">how much does a VPS cost</a> compares what each tier really costs.</p>
+<footer>MIT licence. Model by <a href="https://html5advent.com/">HTML5 Advent</a>. The full calculator suggests plans and may include affiliate links. This page does not.</footer>
+</main>
+<script type="module">
+import { size } from './model.mjs';
+const $ = (id) => document.getElementById(id);
+const nf = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
+function run() {
+  const r = size({ stack: $('stack').value, apps: +$('apps').value || 1, visits: +$('visits').value || 0, mediaGb: +$('media').value || 0,
+    peak: +$('peak').value, cache: $('cache').checked, staging: $('staging').checked, mail: $('mail').checked, jobs: $('jobs').checked });
+  $('o-cpu').textContent = r.vcpu; $('o-ram').textContent = nf.format(r.ram); $('o-disk').textContent = r.disk;
+  $('o-rps').textContent = 'Peak load: ' + nf.format(r.rps) + ' requests per second.';
+  const br = $('o-br'); br.replaceChildren();
+  for (const [k, v] of Object.entries(r.breakdown)) { if (v <= 0) continue;
+    const li = document.createElement('li'); const a = document.createElement('span'); const b = document.createElement('b');
+    a.textContent = k; b.textContent = nf.format(v) + ' GB'; li.append(a, b); br.append(li); }
+}
+$('f').addEventListener('input', run); $('f').addEventListener('change', run); run();
+</script>
+</body>
+</html>
